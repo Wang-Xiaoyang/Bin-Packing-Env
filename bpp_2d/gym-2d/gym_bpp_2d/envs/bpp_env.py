@@ -32,6 +32,10 @@ class BppEnv(gym.Env):
         self.state = bin_items_state.copy()
         self.items_total_area = sum(sum(sum(items_list_board)))
 
+        # step
+        self.step = 0
+        self.max_step = 100
+
         # action space
         self.action_space = spaces.Discrete(self.game.getActionSize())
 
@@ -67,9 +71,12 @@ class BppEnv(gym.Env):
 
 
     def step(self, action):
+        self.step += 1
+        exceed_max_step = self.step > self.max_step
+
         valid_actions = self.game.getValidMoves(self.state)
         if valid_actions[action] != 1:
-            return self.state.copy(), 0, 0, []
+            return self.state.copy(), 0, 0 or exceed_max_step, []
 
         board, items_list_board = self.game.getNextState(self.board, action, self.items_list_board)
         self.board = board.copy()
@@ -77,13 +84,14 @@ class BppEnv(gym.Env):
         next_bin_items_state = self.game.getBinItem(board, items_list_board)
         self.state = next_bin_items_state.copy()
 
+
         done = self.game.getGameEnded(next_bin_items_state)
         if not done:
             r = 0
         else:
             r = self.game.getReward(next_bin_items_state, self.items_total_area)
 
-        return self.state.copy(), r, done, []
+        return self.state.copy(), r, done or exceed_max_step, []
 
     def reset(self):
         items_list = self.gen.items_generator(self.seed)
@@ -99,6 +107,7 @@ class BppEnv(gym.Env):
         bin_items_state = self.game.getBinItem(board, items_list_board)
         self.state = bin_items_state.copy()
         self.items_total_area = sum(sum(sum(items_list_board)))
+        self.step = 0
         return self.state
 
     def render(self):
