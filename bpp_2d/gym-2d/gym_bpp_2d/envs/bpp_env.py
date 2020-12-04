@@ -7,9 +7,15 @@ from .BinPackingGame import ItemsGenerator as Generator
 
 class BppEnv(gym.Env):
     def __init__(self, bin_height=10, bin_width=10, num_items=10, bin_height_virtual=15, bin_width_virtual=15, seed=[]):
+        # init environment with default parameters
+        # bin_height, bin_width: the 'optimal' bin size; generate items by slicing the bin (bin_height, bin_width)
         self.bin_height, self.bin_width = bin_height, bin_width
+        # number of items
         self.num_items = num_items
+        # pack items into a 'virtual' bin; the goal is to find the minimal packing;
+        # the size of this 'virtual' bin decides the size of the state representation
         self.bin_height_virtual, self.bin_width_virtual = bin_height_virtual, bin_width_virtual
+        # set seed
         if len(seed) == 0:
             self.seed = 0 # default seed
         else:
@@ -17,19 +23,21 @@ class BppEnv(gym.Env):
 
         # initialize items by slicing a bin with size bin_height * bin_width
         self.gen = Generator(bin_width, bin_height, num_items)
-
+        # generate items using self.seed
         items_list = self.gen.items_generator(self.seed)
         self.items_list = items_list.copy()
-        # initialize bin packing problem
+        # initialize bin packing problem as a game
         self.game = Game(bin_width_virtual, bin_height_virtual, num_items, n=1)
 
         # initial empty bin and items
+        # board = the virtual bin
         board = self.game.getInitBoard()
         self.board = board.copy()
         items_list_board = self.game.getInitItems(self.items_list)
         self.items_list_board = items_list_board.copy()
         bin_items_state = self.game.getBinItem(board, items_list_board)
         self.state = bin_items_state.copy()
+        # the total area of items
         self.items_total_area = sum(sum(sum(items_list_board)))
 
         # step
@@ -37,10 +45,12 @@ class BppEnv(gym.Env):
         self.max_step = 100
 
         # action space
+        # action: choose an item from N items + choose a position for the item in the virtual bin
+        # N * virtual_height * virtual_width
         self.action_space = spaces.Discrete(self.game.getActionSize())
 
     def init_par(self, bin_height, bin_width, num_items, bin_height_virtual, bin_width_virtual, seed=[]):
-        # to set parameters, this is the function
+        # to set parameters, use this the function
         self.bin_height, self.bin_width = bin_height, bin_width
         self.num_items = num_items
         self.bin_height_virtual, self.bin_width_virtual = bin_height_virtual, bin_width_virtual

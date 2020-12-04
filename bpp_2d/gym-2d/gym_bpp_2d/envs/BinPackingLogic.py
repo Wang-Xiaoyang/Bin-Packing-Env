@@ -32,27 +32,30 @@ class Bin():
         return self.pieces[index]
 
     def get_adjacency(self, i, j, h, w):
+        # important: adjacency rule
+        # for a placement to be valid, the item must be adjacent to either the bin boarder or other items
+        # in two adjacent dimensions (here it is up and left)
         adjacent_direction = 0
         # get adjacency information for current item (h, w) if placed in (i, j)
-        # up
+        ## up
         if i == 0:
             adjacent_direction += 1
         else:
             if sum(self[i-1, j:j+w]) != 0:
                 adjacent_direction += 1
-        # # down
+        ## down
         # if i+h == self.bin_height:
         #     adjacent_direction += 1
         # else:
         #     if sum(self[i+h, j:j+w]) != 0:
         #         adjacent_direction += 1
-        # left
+        ## left
         if j == 0:
             adjacent_direction += 1
         else:
             if sum(self[i:i+h, j-1]) != 0:
                 adjacent_direction += 1
-        # # right
+        ## right
         # if j+w == self.bin_width:
         #     adjacent_direction += 1
         # else:
@@ -62,9 +65,8 @@ class Bin():
         return adjacent_direction == 2
 
     def get_moves_for_square(self, items_list_board, item_idx):
-        # get moves for each available item -xw
-        # then get all valid moves in get_legal_moves
-        item = items_list_board[item_idx] # board format
+        # get moves for each available item
+        item = items_list_board[item_idx] # 2d format
         assert sum(sum(item)) > 0
         w = sum(item[0,:])
         h = sum(item[:,0]) 
@@ -79,9 +81,9 @@ class Bin():
         return moves
 
     def execute_move(self, move, w, h):
-        """Only update board (bin).
+        """Only update the bin.
         """
-        # return new board and new items_all
+        # return new bin and new items_all
         # move: (i, j)
         # items_list = items_list.copy()
         pieces = self.pieces.copy()

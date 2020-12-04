@@ -7,18 +7,12 @@ import numpy as np
 import random
 
 class BinPackingGame(Game):
-    # square_content = {
-    #     -1: "X",
-    #     +0: "-",
-    #     +1: "O"
-    # }
 
     def __init__(self, bin_width, bin_height, num_items, n):
         self.bin_width = bin_width
         self.bin_height = bin_height
         self.num_items = num_items
-        self.n = n # number of bins (consider later - xw)
-        self.cur_item = 0 # counter(idx) for item(s) being considered
+        self.n = n # number of bins (currently only one bin)
 
     def getInitBoard(self):
         # return initial board (numpy board)
@@ -31,12 +25,12 @@ class BinPackingGame(Game):
 
     def getActionSize(self):
         # return number of actions
-        # total number of actions in this board
-        # return (self.bin_height*self.bin_width)*self.num_items + self.num_items
-        return self.bin_height*self.bin_width*self.num_items
+        # return (self.bin_height*self.bin_width)*self.num_items
+        return self.bin_height * self.bin_width * self.num_items
 
     def getInitItems(self, items_list):
         # items_list from item generator
+        # 2D format
         items_list_board = []
         for i in range(self.num_items):
             w, h, _, _ = items_list[i]
@@ -46,40 +40,34 @@ class BinPackingGame(Game):
         return items_list_board
     
     def getItemsUpdated(self, items_list_board, cur_item):
-        # update items without touching the board (bin).
+        # update items
         items_list_board[cur_item] -= items_list_board[cur_item] # set to 0     
         return items_list_board
 
     def getNextState(self, board, action, items_list_board):
         # get next board, to see if game ended - xw
         # also the next state to keep game going!
-
-        # if player takes action on board, return next (board,player)
         # action must be a valid move
         items_list_board = np.copy(items_list_board)
         b = Bin(self.bin_width, self.bin_height)
         b.pieces = np.copy(board)
-        # # action: item*(bin_h*bin_w) + [0:num_items] (for pass)
-        # cur_item, placement = int(action/(self.bin_height*self.bin_width)), action%(self.bin_height*self.bin_width)
-        # if cur_item == self.num_items: # pass item or do nothing
-        #     items_list_board = self.getItemsUpdated(items_list_board, placement)
-        #     return b.pieces, items_list_board
-        # item = items_list_board[cur_item] # board format
-        # assert sum(sum(item)) > 0 # must choose a valid item
+
+        # decode action to (item, placement)
         cur_item, placement = int(action/(self.bin_height*self.bin_width)), action%(self.bin_height*self.bin_width)        
         item = items_list_board[cur_item]
         assert sum(sum(item)) > 0 # must choose a valid item
-        # item is valid
+        # if item is valid:
         w = sum(item[0,:])
         h = sum(item[:,0])
         move = (int(placement/self.bin_width), placement%self.bin_width)
-        b.execute_move(move, w, h)
-        items_list_board = self.getItemsUpdated(items_list_board, cur_item)
+        # execute action
+        b.execute_move(move, w, h) # update bin
+        items_list_board = self.getItemsUpdated(items_list_board, cur_item) # update items
         return (b.pieces, items_list_board)
 
     def getValidMoves(self, board):
-        # return a fixed size binary vector
-        # size is the same with getActionSize; the value is 1 for valid moves in the 'board'
+        # return a binary vector
+        # size is the same with getActionSize; the value is 1 for valid moves in the 'bin'
         valids = [0]*self.getActionSize()
         b = Bin(self.bin_width, self.bin_height)
         b.pieces = np.copy(board[0])
@@ -94,8 +82,7 @@ class BinPackingGame(Game):
         return np.array(valids)
 
     def has_valid_moves(self, board):
-        # return a fixed size binary vector
-        # size is the same with getActionSize; the value is 1 for valid moves in the 'board'
+        # any valid move left? game ends or not
         b = Bin(self.bin_width, self.bin_height)
         b.pieces = np.copy(board[0])
         moves = []
@@ -109,7 +96,7 @@ class BinPackingGame(Game):
         return len(moves) > 0
 
     def getGameEnded(self, total_board):
-        # return 0 if not ended, 1 if win (higher than 0.75 reward), -1 if lost
+        # return 0 if game doesn't end; 1 if game ends
         assert(len(total_board) == self.num_items+self.n)
         if not self.has_valid_moves(total_board):
             # no legal moves left, game ends
@@ -122,11 +109,8 @@ class BinPackingGame(Game):
         return np.array([board] + list(items_list_board))
 
     def getSymmetries(self, board, pi):
+        # get symmetrical state representation
         # rotate 180 degree; flip in two ways
-        # note: add one layer in the state indicating the current item
-        # to keep the pi simple
-
-        # mirror, rotational
         assert(len(pi) == self.getActionSize())  # 1 for pass
         size_b = self.bin_width * self.bin_height
         pi_board = []
@@ -157,6 +141,8 @@ class BinPackingGame(Game):
         return l
 
     def get_minimal_bin(self, board):
+        # evaluate packing result: minimal bin size
+        # minimal_bin_size = max([h,w])^2
         for i in reversed(range(self.bin_height)):
             if sum(board[i,:]) > 0:
                 break
@@ -176,35 +162,6 @@ class BinPackingGame(Game):
             a = self.get_minimal_bin(total_board[0,:])
             r = items_total_area / (a*a)
         return r
-
-    def stringRepresentation(self, board):
-        board_ = np.array([]).tostring()
-        for i in board:
-            board_ += i.tostring()
-        return board_
-
-    def stringRepresentationReadable(self, board):
-        # not used
-        board_s = "".join(self.square_content[square] for row in board for square in row)
-        return board_s
-
-    @staticmethod
-    def display(board):
-        # later - xw
-        n = board.shape[0]
-        print("   ", end="")
-        for y in range(n):
-            print(y, end=" ")
-        print("")
-        print("-----------------------")
-        for y in range(n):
-            print(y, "|", end="")    # print the row #
-            for x in range(n):
-                piece = board[y][x]    # get the piece to print
-                print(OthelloGame.square_content[piece], end=" ")
-            print("|")
-
-        print("-----------------------")
 
 
 class ItemsGenerator():
@@ -244,23 +201,23 @@ class ItemsGenerator():
                 item_list.pop(idx_item)
         return item_list
 
-    def items_generator_set_one_dim(self, seed, numbers_for_one_dim, mode='random'):
-        # for 2D items: given the value of one dimension
-        # generate items accordingly
-        # mode: 
-        #   'random' - the value of the other dimension is random (items won't perfectly fit a bin)
-        #   'segmentation' - segment the bin to generate items that could fit (normal bin packing)
-        np.random.seed()
-        item_list = []
-        if mode == 'random':
-            while True:
-                randomlist = list(range(1, 8))
-                dim_values = random.choices(randomlist, k=len(numbers_for_one_dim))
-                total_area = 0
-                for i in range(len(numbers_for_one_dim)):
-                    total_area += numbers_for_one_dim[i] * dim_values[i]
-                if total_area <= 0.7 * 0.7 * self.bin_height * self.bin_width:
-                    break
-        for i in range(len(numbers_for_one_dim)):
-            item_list.append([int(numbers_for_one_dim[i]), int(dim_values[i]), 0, 0])
-        return item_list  
+    # def items_generator_set_one_dim(self, seed, numbers_for_one_dim, mode='random'):
+    #     # for 2D items: given the value of one dimension
+    #     # generate items accordingly
+    #     # mode: 
+    #     #   'random' - the value of the other dimension is random (items won't perfectly fit a bin)
+    #     #   'segmentation' - segment the bin to generate items that could fit (normal bin packing)
+    #     np.random.seed()
+    #     item_list = []
+    #     if mode == 'random':
+    #         while True:
+    #             randomlist = list(range(1, 8))
+    #             dim_values = random.choices(randomlist, k=len(numbers_for_one_dim))
+    #             total_area = 0
+    #             for i in range(len(numbers_for_one_dim)):
+    #                 total_area += numbers_for_one_dim[i] * dim_values[i]
+    #             if total_area <= 0.7 * 0.7 * self.bin_height * self.bin_width:
+    #                 break
+    #     for i in range(len(numbers_for_one_dim)):
+    #         item_list.append([int(numbers_for_one_dim[i]), int(dim_values[i]), 0, 0])
+    #     return item_list 
